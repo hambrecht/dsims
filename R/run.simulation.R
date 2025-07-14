@@ -25,6 +25,42 @@
 #' @importFrom rstudioapi versionInfo
 #' @rdname run.simulation-methods
 #' @seealso \code{\link{make.simulation}}
+#' 
+check.parallel.capability <- function(run.parallel, max.cores) {
+  # If parallel processing not requested, return FALSE
+  if (!run.parallel) {
+    return(FALSE)
+  }
+  
+  # Check if parallel package is available
+  if (!requireNamespace("parallel", quietly = TRUE)) {
+    warning("Parallel package not available. Running in serial mode.")
+    return(FALSE)
+  }
+  
+  # Determine number of cores to use
+  available_cores <- parallel::detectCores()
+  if (is.na(available_cores)) {
+    warning("Could not detect number of cores. Running in serial mode.")
+    return(FALSE)
+  }
+  
+  # Set number of cores to use
+  if (is.na(max.cores)) {
+    nCores <<- max(1, available_cores - 1)  # Use all but one core
+  } else {
+    nCores <<- min(max_cores, available_cores)  # Use specified number or max available
+  }
+  
+  # Final check if we can run in parallel
+  if (nCores > 1) {
+    return(TRUE)
+  } else {
+    warning("Only one core available. Running in serial mode.")
+    return(FALSE)
+  }
+}
+
 run.simulation <- function(simulation, run.parallel = FALSE, max.cores = NA, 
                          counter = TRUE, transect.path = character(0), 
                          progress.file = character(0)) {
