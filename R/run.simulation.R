@@ -26,7 +26,7 @@
 #' @rdname run.simulation-methods
 #' @seealso \code{\link{make.simulation}}
 #' 
-check.parallel.capability <- function(run.parallel, max.cores) {
+check.parallel.capability <- function(run.parallel, max.cores = NA) {
   # If parallel processing not requested, return FALSE
   if (!run.parallel) {
     return(FALSE)
@@ -49,7 +49,7 @@ check.parallel.capability <- function(run.parallel, max.cores) {
   if (is.na(max.cores)) {
     nCores <<- max(1, available_cores - 1)  # Use all but one core
   } else {
-    nCores <<- min(max_cores, available_cores)  # Use specified number or max available
+    nCores <<- min(max.cores, available_cores)  # Use specified number or max available
   }
   
   # Final check if we can run in parallel
