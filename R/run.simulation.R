@@ -92,68 +92,185 @@ run.simulation <- function(simulation, run.parallel = FALSE, max.cores = NA, cou
       }
     }
   }
-  if(run.parallel){
-    # there is an issue with parallel on some machines for some versions of R and R studio
-    ## WORKAROUND: https://github.com/rstudio/rstudio/issues/6692
-    ## Revert to 'sequential' setup of PSOCK cluster in RStudio v1.3.959 or lower on macOS with R v4.0.0 or higher
-    if (Sys.getenv("RSTUDIO") == "1" && !nzchar(Sys.getenv("RSTUDIO_TERM")) &&
-        Sys.info()["sysname"] == "Darwin" && getRversion() >= "4.0.0") {
-      if(rstudioapi::versionInfo()$version < "1.3.1056"){
-        #warning(paste("The combination of versions of R-studio and R you are using on your mac may lead to an error when running in parallel. Please run the following command to try to correct this before running the simulation again (alternatively try updating R-studio): parallel:::setDefaultClusterOptions(setup_strategy = \"sequential\")", sep = ""), immediate. = TRUE, call. = FALSE)
-        eval(parse(text = "parallel:::setDefaultClusterOptions(setup_strategy = \"sequential\")"))
-      }
-    }
-    # intitialise the cluster
-    myCluster <- parallel::makeCluster(nCores)
-    parallel::clusterEvalQ(myCluster, {
-      require(dsims)
-    })
-    on.exit(stopCluster(myCluster))
+if(run.parallel){
+  # Initialize cluster with memory management
+  myCluster <- parallel::makeCluster(nCores)
+  parallel::clusterEvalQ(myCluster, {
+    require(dsims)
+    gc() # Initial garbage collection
+  })
+  on.exit(stopCluster(myCluster))
+  
+  # Process in batches to manage memory
+  batch.size <- 10  # Adjust based on system memory
+  batches <- split(1:simulation@reps, 
+                  ceiling(seq_along(1:simulation@reps)/batch.size))
+  
+  # Initialize accumulated results
+  sim.results <- list()
+  sim.warnings <- list()
+  
+  # Process each batch
+  for(batch_idx in seq_along(batches)) {
+    current_batch <- batches[[batch_idx]]
+    
     if(counter){
-        results <- pbapply::pblapply(X = as.list(1:simulation@reps), FUN = single.sim.loop, simulation = simulation, save.data = save.data, load.data = load.data, data.path = data.path, transect.path = transect.path, save.transects = FALSE, progress.file = progress.file, cl = myCluster, counter = FALSE)
-    }else{
-      results <- parLapply(myCluster, X = as.list(1:simulation@reps), fun = single.sim.loop, simulation = simulation, save.data = save.data, load.data = load.data, data.path = data.path, counter = FALSE, transect.path = transect.path, save.transects = FALSE, progress.file = progress.file)
+      batch_results <- pbapply::pblapply(
+        X = as.list(current_batch), 
+        FUN = single.sim.loop, 
+        simulation = simulation, 
+        save.data = save.data, 
+        load.data = load.data, 
+        data.path = data.path, 
+        transect.path = transect.path, 
+        save.transects = FALSE, 
+        progress.file = progress.file, 
+        cl = myCluster, 
+        counter = FALSE
+      )
+    } else {
+      batch_results <- parLapply(
+        myCluster, 
+        X = as.list(current_batch), 
+        fun = single.sim.loop, 
+        simulation = simulation, 
+        save.data = save.data, 
+        load.data = load.data, 
+        data.path = data.path, 
+        counter = FALSE, 
+        transect.path = transect.path, 
+        save.transects = FALSE, 
+        progress.file = progress.file
+      )
     }
-    #Extract results and warnings
-    sim.results <- sim.warnings <- list()
-    for(i in seq(along = results)){
-      sim.results[[i]] <- results[[i]]$results
-      sim.warnings[[i]] <- results[[i]]$warnings
+    
+    # Extract and accumulate batch results
+    for(i in seq_along(batch_results)) {
+      sim.results[[current_batch[i]]] <- batch_results[[i]]$results
+      sim.warnings[[current_batch[i]]] <- batch_results[[i]]$warnings
     }
-    simulation <- accumulate.PP.results(simulation = simulation, results = sim.results)
-    simulation@warnings <- accumulate.warnings(sim.warnings)
-    stopCluster(myCluster)
-    on.exit()
+    
+    # Clean up batch data
+    rm(batch_results)
+    parallel::clusterEvalQ(myCluster, gc())
+    gc()
   }
+  
+  # Accumulate final results
+  simulation <- accumulate.PP.results(simulation = simulation, 
+                                    results = sim.results)
+  simulation@warnings <- accumulate.warnings(sim.warnings)
+  
+  # Clean up cluster
+  stopCluster(myCluster)
+  on.exit()
+  
+  # Clean up remaining objects
+  rm(sim.results, sim.warnings)
+  gc()
   if(!run.parallel){
-    #otherwise loop
-    for(i in 1:simulation@reps){
-      results <- single.sim.loop(i = i,
-                                 simulation = simulation,
-                                 save.data = save.data,
-                                 load.data = load.data,
-                                 data.path = data.path,
-                                 counter = counter,
-                                 transect.path = transect.path,
-                                 save.transects = FALSE,
-                                 progress.file = progress.file)
-      simulation@results <- results$results
-      simulation@warnings <- results$warnings
+  # Create temp directory for intermediate results
+  temp_dir <- file.path(tempdir(), "dsims_temp")
+  dir.create(temp_dir, showWarnings = FALSE)
+  
+  # Initialize progress counter if needed
+  if(counter) {
+    pb <- txtProgressBar(min = 0, max = simulation@reps, style = 3)
+  }
+  
+  # Process in smaller batches
+  batch.size <- 40  # Adjust based on your system
+  n.batches <- ceiling(simulation@reps/batch.size)
+  
+  # Initialize accumulated results
+  accumulated_results <- create.results.arrays(simulation@reps,
+                                            simulation@design@region,
+                                            simulation@ds.analysis,
+                                            simulation@population.description)
+  accumulated_warnings <- list(message = list(),
+                             counter = list(),
+                             index = list())
+  
+  for(batch in 1:n.batches) {
+    start.idx <- ((batch-1) * batch.size) + 1
+    end.idx <- min(batch * batch.size, simulation@reps)
+    
+    batch_results <- list()
+    for(i in start.idx:end.idx) {
+      # Run single simulation
+      result <- single.sim.loop(i = i,
+                              simulation = simulation,
+                              save.data = save.data,
+                              load.data = load.data,
+                              data.path = data.path,
+                              counter = FALSE,  # Handle progress separately
+                              transect.path = transect.path,
+                              save.transects = FALSE,
+                              progress.file = progress.file)
+      
+      # Save to temp file
+      saveRDS(result, file = file.path(temp_dir, paste0("rep_", i, ".rds")))
+      
+      # Update progress bar if needed
+      if(counter) {
+        setTxtProgressBar(pb, i)
+      }
+      
+      # Clean up
+      rm(result)
+      gc()
+    }
+    
+    # Process batch results
+    for(i in start.idx:end.idx) {
+      result <- readRDS(file.path(temp_dir, paste0("rep_", i, ".rds")))
+      
+      # Accumulate results
+      accumulated_results <- accumulate.PP.results(
+        simulation = list(results = accumulated_results),
+        results = list(result$results)
+      )$results
+      
+      # Accumulate warnings
+      if(length(result$warnings$message) > 0) {
+        accumulated_warnings$message <- c(accumulated_warnings$message, result$warnings$message)
+        accumulated_warnings$counter <- c(accumulated_warnings$counter, result$warnings$counter)
+        accumulated_warnings$index <- c(accumulated_warnings$index, result$warnings$index)
+      }
+      
+      # Clean up
+      rm(result)
+      unlink(file.path(temp_dir, paste0("rep_", i, ".rds")))
+      gc()
     }
   }
-  simulation@results <- add.summary.results(results = simulation@results,
-                                            model.count = length(simulation@ds.analysis@dfmodel))
-  #Process warnings
-  if(length(simulation@warnings$message) > 0){
+  
+  # Close progress bar if needed
+  if(counter) {
+    close(pb)
+  }
+  
+  # Update simulation object
+  simulation@results <- accumulated_results
+  simulation@warnings <- accumulated_warnings
+  
+  # Clean up temp directory
+  unlink(temp_dir, recursive = TRUE)
+  
+  # Process warnings
+  if(length(simulation@warnings$message) > 0) {
     message("Summary of warnings and errors:")
-    for(i in seq(along = simulation@warnings$message)){
+    for(i in seq(along = simulation@warnings$message)) {
       rep.info <- ifelse(is.null(simulation@warnings$index), "",
-                         paste(" in repetition(s): ", paste(simulation@warnings$index[[i]], collapse = ", ")))
-      message(paste(simulation@warnings$message[[i]], " (occurred ", simulation@warnings$counter[[i]], " time(s)", rep.info, ")", sep = ""))
+                        paste(" in repetition(s): ",
+                              paste(simulation@warnings$index[[i]], collapse = ", ")))
+      message(paste(simulation@warnings$message[[i]],
+                   " (occurred ", simulation@warnings$counter[[i]],
+                   " time(s)", rep.info, ")", sep = ""))
     }
     message("-----")
   }
-
+  
   return(simulation)
 }
 
