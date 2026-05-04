@@ -113,9 +113,11 @@ run.simulation <- function(simulation, run.parallel = FALSE, max.cores = NA,
                                       transect.path, progress.file)
   }
   
-  # Process and display warnings
+  # Display accumulated warnings
   if (length(simulation@warnings$message) > 0) {
-    display.warnings(simulation@warnings)
+    for(w in seq_along(simulation@warnings$message)){
+      warning(simulation@warnings$message[[w]], immediate. = TRUE, call. = FALSE)
+    }
   }
   
   return(simulation)
@@ -221,35 +223,39 @@ run.parallel.simulation <- function(simulation, myCluster, counter,
 run.serial.simulation <- function(simulation, counter,
                                 save.data, load.data, data.path,
                                 transect.path, progress.file) {
-  temp_dir <- file.path(tempdir(), "dsims_temp")
-  dir.create(temp_dir, showWarnings = FALSE)
-  on.exit(unlink(temp_dir, recursive = TRUE))
-  
   if (counter) {
     pb <- txtProgressBar(min = 0, max = simulation@reps, style = 3)
     on.exit(close(pb), add = TRUE)
+  } else {
+    pb <- NULL
   }
-  
-  batch.size <- 40
-  n.batches <- ceiling(simulation@reps/batch.size)
-  
-  accumulated_results <- create.results.arrays(simulation@reps,
-                                            simulation@design@region,
-                                            simulation@ds.analysis,
-                                            simulation@population.description)
-  accumulated_warnings <- list(message = list(),
-                             counter = list(),
-                             index = list())
-  
-  for (batch in 1:n.batches) {
-    process.serial.batch(batch, batch.size, simulation, counter, pb,
-                        save.data, load.data, data.path,
-                        transect.path, progress.file, temp_dir,
-                        accumulated_results, accumulated_warnings)
+
+  sim.results  <- vector("list", simulation@reps)
+  sim.warnings <- vector("list", simulation@reps)
+
+  for (i in 1:simulation@reps) {
+    rep.result <- single.sim.loop(
+      i              = i,
+      simulation     = simulation,
+      save.data      = save.data,
+      load.data      = load.data,
+      data.path      = data.path,
+      counter        = FALSE,
+      in.parallel    = FALSE,
+      transect.path  = transect.path,
+      save.transects = FALSE,
+      progress.file  = progress.file
+    )
+    sim.results[[i]]  <- rep.result$results
+    sim.warnings[[i]] <- rep.result$warnings
+    if (counter && !is.null(pb)) {
+      setTxtProgressBar(pb, i)
+    }
   }
-  
-  simulation@results <- accumulated_results
-  simulation@warnings <- accumulated_warnings
-  
+
+  simulation <- accumulate.PP.results(simulation = simulation,
+                                      results    = sim.results)
+  simulation@warnings <- accumulate.warnings(sim.warnings)
+
   return(simulation)
 }
