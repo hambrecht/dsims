@@ -143,18 +143,15 @@ run.simulation <- function(simulation, run.parallel = FALSE, max.cores = NA, cou
                                      X = as.list(1:simulation@reps),
                                      fun = worker.fun)
     #Extract results and warnings
-    sim.results <- sim.warnings <- list()
-    for(i in seq(along = results)){
-      sim.results[[i]] <- results[[i]]$results
-      sim.warnings[[i]] <- results[[i]]$warnings
-    }
-    simulation <- accumulate.PP.results(simulation = simulation, results = sim.results)
+    sim.warnings <- lapply(results, function(x) x$warnings)
+    simulation <- accumulate.PP.results(simulation = simulation, results = results)
     simulation@warnings <- accumulate.warnings(sim.warnings)
     stopCluster(myCluster)
     on.exit()
   }
   if(!run.parallel){
     #otherwise loop
+    sim.warnings <- vector("list", simulation@reps)
     for(i in 1:simulation@reps){
       results <- single.sim.loop(i = i,
                                  simulation = simulation,
@@ -165,9 +162,19 @@ run.simulation <- function(simulation, run.parallel = FALSE, max.cores = NA, cou
                                  transect.path = transect.path,
                                  save.transects = FALSE,
                                  progress.file = progress.file)
-      simulation@results <- results$results
-      simulation@warnings <- results$warnings
+      if(!is.null(results$rep.result)){
+        simulation@results <- apply.rep.result(simulation@results,
+                                               results$rep.result,
+                                               i)
+        if(!is.null(results$filename) && length(results$filename) > 0){
+          simulation@results$filename[i] <- results$filename
+        }
+      }else{
+        simulation@results <- results$results
+      }
+      sim.warnings[[i]] <- results$warnings
     }
+    simulation@warnings <- accumulate.warnings(sim.warnings)
   }
   simulation@results <- add.summary.results(results = simulation@results,
                                             model.count = length(simulation@ds.analysis@dfmodel))
