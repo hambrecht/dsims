@@ -1,5 +1,35 @@
 #' @importFrom methods is
 #' @importFrom terra rast cellFromXY values
+get.dsims.runtime.cache <- function(){
+  cache <- getOption("dsims.runtime.cache")
+  if(is.null(cache) || !is.environment(cache)){
+    cache <- new.env(parent = emptyenv())
+    options(dsims.runtime.cache = cache)
+  }
+  cache
+}
+
+get.surface.cache.entry <- function(sn, surf){
+  cache <- get.dsims.runtime.cache()
+  if(is.character(surf)){
+    cache.key <- paste0("file::", normalizePath(surf, mustWork = FALSE))
+  }else{
+    surf.ext <- terra::ext(surf)
+    cache.key <- paste0("mem::", sn, "::", terra::ncell(surf), "::",
+                        paste(as.numeric(surf.ext), collapse = ":"))
+  }
+
+  if(exists(cache.key, envir = cache, inherits = FALSE)){
+    return(get(cache.key, envir = cache, inherits = FALSE))
+  }
+
+  surf.obj <- if(is.character(surf)) terra::rast(surf) else surf
+  entry <- list(rast = surf.obj,
+                vals = terra::values(surf.obj)[,1])
+  assign(cache.key, entry, envir = cache)
+  entry
+}
+
 calculate.scale.param <- function(pop.data, detectability, region){
 # This function calculates the scale parameters including any covariate effects
 # and adds these values to the population dataframe which is then returned. Also
@@ -40,12 +70,9 @@ calculate.scale.param <- function(pop.data, detectability, region){
     pts <- cbind(pop.data$x, pop.data$y)
     for(sn in surf.names){
       surf <- detectability@cov.surface[[sn]]
-      if(is.character(surf)){
-        surf <- terra::rast(surf)
-      }
-      cell_ids <- terra::cellFromXY(surf, pts)
-      rast_vals <- terra::values(surf)[, 1]
-      vals <- rast_vals[cell_ids]
+      cache.entry <- get.surface.cache.entry(sn, surf)
+      cell_ids <- terra::cellFromXY(cache.entry$rast, pts)
+      vals <- cache.entry$vals[cell_ids]
       if(any(is.na(vals))){
         warning(paste0("NA raster values for surface covariate '", sn,
                        "' at some animal locations (outside raster extent). ",
