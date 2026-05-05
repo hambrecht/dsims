@@ -194,7 +194,9 @@ setMethod(
     cov.names <- names(object@cov.param)
     # Check if there are covariates in detectability that are not in pop.desc
     pop.covs <- names(pop.desc@covariates)
-    if(any(!cov.names %in% pop.covs)){
+    surface.covs <- names(object@cov.surface)
+    missing.covs <- setdiff(cov.names, c(pop.covs, surface.covs))
+    if(length(missing.covs) > 0){
       stop("You have defined detectability for covariates that are not included in the population description.", call. = FALSE)
     }
     # set mfrow storing old settings
@@ -222,7 +224,21 @@ setMethod(
       for(cov in seq(along = object@cov.param)){
         cov.params <- object@cov.param[[cov]]
         cov.dist <- pop.desc@covariates[[cov.names[cov]]]
-        if(is(object@cov.param[[cov]], "data.frame")){
+        if(is.null(cov.dist) && cov.names[cov] %in% surface.covs){
+          param.type <- "surface"
+          no.cov.strata <- max(1, length(cov.params))
+          cov.surface <- object@cov.surface[[cov.names[cov]]]
+          if(is.character(cov.surface)){
+            cov.surface <- terra::rast(cov.surface)
+          }
+          surf.values <- terra::values(cov.surface)[,1]
+          surf.values <- surf.values[!is.na(surf.values)]
+          if(length(surf.values) == 0){
+            quantiles <- c(0, 0, 0)
+          }else{
+            quantiles <- as.numeric(quantile(surf.values, c(0.025, 0.5, 0.975)))
+          }
+        }else if(is(object@cov.param[[cov]], "data.frame")){
           param.type = "categorical"
           no.cov.strata <- ifelse(is.null(cov.params$strata), 1, length(unique(cov.params$strata)))
         }else if(is(cov.dist[[1]], "data.frame")){
@@ -236,6 +252,8 @@ setMethod(
           plot.title <- paste("Covariate: ", cov.names[cov], " (factor)", sep = "")
         }else if(param.type == "discrete"){
           plot.title <- paste("Covariate: ", cov.names[cov], " (discrete)", sep = "")
+        }else if(param.type == "surface"){
+          plot.title <- paste("Covariate: ", cov.names[cov], " (raster)", sep = "")
         }else{
           plot.title <- paste("Covariate: ", cov.names[cov], " (continuous)", sep = "")
         }
@@ -312,6 +330,9 @@ setMethod(
                                     "poisson" = qpois(int, dist.param$lambda),
                                     "lognormal" = qlnorm(int, dist.param$meanlog, dist.param$sdlog))
               }
+            }else if(param.type == "surface"){
+              # quantiles were already computed from the raster values
+              quantiles <- quantiles
             }
             # get adjustment paramters
             if(length(cov.params) == no.strata){
@@ -350,6 +371,8 @@ setMethod(
           desc.ints <- "min,max"
         }else if(param.type == "continuous"){
           desc.ints <- "95%ints"
+        }else if(param.type == "surface"){
+          desc.ints <- "raster 95%ints"
         }
         if(param.type == "categorical"){
           no.levels <- length(unique(cov.params$level))
