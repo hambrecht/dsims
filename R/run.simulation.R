@@ -180,12 +180,8 @@ run.simulation <- function(simulation, run.parallel = FALSE, max.cores = NA,
                                      X = as.list(1:simulation@reps),
                                      fun = worker.fun)
     #Extract results and warnings
-    sim.results <- sim.warnings <- list()
-    for(i in seq(along = results)){
-      sim.results[[i]] <- results[[i]]$results
-      sim.warnings[[i]] <- results[[i]]$warnings
-    }
-    simulation <- accumulate.PP.results(simulation = simulation, results = sim.results)
+    sim.warnings <- lapply(results, function(x) x$warnings)
+    simulation <- accumulate.PP.results(simulation = simulation, results = results)
     simulation@warnings <- accumulate.warnings(sim.warnings)
     stopCluster(myCluster)
     on.exit()

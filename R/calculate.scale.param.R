@@ -15,8 +15,9 @@ get.surface.cache.entry <- function(sn, surf){
     cache.key <- paste0("file::", normalizePath(surf, mustWork = FALSE))
   }else{
     surf.ext <- terra::ext(surf)
+    ext.vec <- c(surf.ext$xmin, surf.ext$xmax, surf.ext$ymin, surf.ext$ymax)
     cache.key <- paste0("mem::", sn, "::", terra::ncell(surf), "::",
-                        paste(as.numeric(surf.ext), collapse = ":"))
+                        paste(ext.vec, collapse = ":"))
   }
 
   if(exists(cache.key, envir = cache, inherits = FALSE)){
