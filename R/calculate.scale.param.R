@@ -1,5 +1,5 @@
 #' @importFrom methods is
-#' @importFrom terra rast cellFromXY values
+#' @importFrom terra rast extract
 get.dsims.runtime.cache <- function(){
   cache <- getOption("dsims.runtime.cache")
   if(is.null(cache) || !is.environment(cache)){
@@ -24,9 +24,12 @@ get.surface.cache.entry <- function(sn, surf){
     return(get(cache.key, envir = cache, inherits = FALSE))
   }
 
+  # Cache only the raster handle: for a file-backed raster, values are read at
+  # the animal locations on demand (terra::extract), so memory stays small even
+  # for large rasters with many parallel workers. Caching terra::values() held
+  # the whole raster in memory in every worker.
   surf.obj <- if(is.character(surf)) terra::rast(surf) else surf
-  entry <- list(rast = surf.obj,
-                vals = terra::values(surf.obj)[,1])
+  entry <- list(rast = surf.obj)
   assign(cache.key, entry, envir = cache)
   entry
 }
@@ -72,8 +75,7 @@ calculate.scale.param <- function(pop.data, detectability, region){
     for(sn in surf.names){
       surf <- detectability@cov.surface[[sn]]
       cache.entry <- get.surface.cache.entry(sn, surf)
-      cell_ids <- terra::cellFromXY(cache.entry$rast, pts)
-      vals <- cache.entry$vals[cell_ids]
+      vals <- terra::extract(cache.entry$rast, pts)[, 1]
       if(any(is.na(vals))){
         warning(paste0("NA raster values for surface covariate '", sn,
                        "' at some animal locations (outside raster extent). ",
