@@ -7,6 +7,7 @@ Enhancements
 * Each repetition uses its own random number stream, so after `set.seed()` results are identical whether run in serial or in parallel, regardless of the number of workers.
 * A repetition that fails with an error no longer stops the simulation; it is skipped and reported in the summary of warnings and errors.
 * The progress counter is now shown when running in parallel and includes the elapsed and estimated remaining time.
+* `make.ds.analysis()` now accepts `key = "unif"` (or `"uf"`) to fit a uniform detection function, giving the strip transect estimate n / covered area. Covariates cannot be used with the uniform key. Previously only "hn" and "hr" were allowed although the documentation listed uniform.
 
 Breaking Changes
 

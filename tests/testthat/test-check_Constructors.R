@@ -229,7 +229,7 @@ test_that("Can create objects or return correct error / warning messages", {
   expect_error(make.ds.analysis(dfmodel = list(~1, ~size, ~size+sex),
                                 key = c("hn","zz","uf"),
                                 truncation = 25),
-               "All key function values should be either 'hn' or 'hr'.")
+               "All key function values should be 'hn', 'hr' or 'unif'.")
 
   expect_error(make.ds.analysis(dfmodel = list(~1, ~size, ~size+sex),
                                 key = c("hn","hr","hr"),
