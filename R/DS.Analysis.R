@@ -84,8 +84,15 @@ setValidity("DS.Analysis",
                 return("This selection criteria is not currently supported, please select from 'AIC', 'BIC' or 'AICc'.")
               }
               # Check key functions
-              if(!all(object@key %in% c("hr", "hn"))){
-                return("All key function values should be either 'hn' or 'hr'.")
+              if(!all(object@key %in% c("hr", "hn", "unif"))){
+                return("All key function values should be 'hn', 'hr' or 'unif'.")
+              }
+              # The uniform key has no parameters so cannot include covariates
+              unif.index <- which(object@key == "unif")
+              for(i in unif.index){
+                if(length(attr(stats::terms(object@dfmodel[[i]]), "term.labels")) > 0){
+                  return("Covariates cannot be included in the model when the uniform key function is used, please use dfmodel = ~1.")
+                }
               }
               # Check no models are repeated
               if(length(object@adjustment) == 0){

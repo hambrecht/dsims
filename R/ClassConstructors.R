@@ -374,8 +374,14 @@ make.detectability <- function(key.function = "hn", scale.param = 25, shape.para
 #'
 #' @param dfmodel list of distance sampling model formula specifying the detection function
 #'  (see \code{?Distance::ds} for further details)
-#' @param key key function to use; "hn" gives half-normal (default) and "hr" gives
-#' hazard-rate.
+#' @param key key function to use; "hn" gives half-normal (default), "hr" gives
+#' hazard-rate and "unif" (or "uf") gives uniform. The uniform key has no
+#' parameters, so it assumes all animals within the truncation distance are
+#' detected (a strip transect estimate) and covariates cannot be included
+#' (the corresponding dfmodel must be ~1). If the simulated detectability is
+#' less than 1 within the strip (e.g. \code{make.detectability(key.function = "uf",
+#' scale.param = 0.9)}) the uniform analysis will underestimate abundance by
+#' the same proportion, as g(0) < 1 cannot be estimated from the distances.
 #' @param truncation absolute truncation distance in simulation units matching the
 #' region units.
 #' @param cutpoints supply a vector of cutpoints if you wish the simulation to perform
@@ -416,6 +422,12 @@ make.detectability <- function(key.function = "hn", scale.param = 25, shape.para
 #'                                 key = c("hn", "hn", "hr"),
 #'                                 truncation = 500,
 #'                                 criteria = "AIC")
+#'
+#' # Uniform (strip transect) analysis, e.g. for a camera where every animal
+#' # within the strip is detected (see make.detectability with key.function = "uf")
+#' ds.analyses <- make.ds.analysis(dfmodel = ~1,
+#'                                 key = "unif",
+#'                                 truncation = 50)
 #'
 make.ds.analysis <- function(dfmodel = list(~1),
                              key = "hn",
@@ -461,6 +473,8 @@ make.ds.analysis <- function(dfmodel = list(~1),
   }else if(length(dfmodel) > 1 && length(key) == 1){
     key <- rep(key, length(dfmodel))
   }
+  # Allow "uf" for consistency with make.detectability, Distance uses "unif"
+  key[key == "uf"] <- "unif"
   # Create class instance
   ds.analysis <- new(Class = "DS.Analysis", dfmodel = dfmodel, key = key, truncation = truncation, cutpoints = cutpoints, er.var = er.var, control.opts = control.opts, group.strata = group.strata, criteria = criteria)
   return(ds.analysis)
