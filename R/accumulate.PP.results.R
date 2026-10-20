@@ -44,8 +44,9 @@ accumulate.PP.results <- function(simulation, results){
       if(!is.null(results[[i]]$filename) && length(results[[i]]$filename) > 0){
         simulation@results$filename[i] <- results[[i]]$filename
       }
-    }else{
+    }else if(!is.null(results[[i]]$individuals)){
       # Backward-compatible path for legacy full-object result returns
+      # (reps which failed with an error return only warnings and are skipped)
       simulation@results$individuals$summary[,,i] <- results[[i]]$individuals$summary[,,i]
       simulation@results$individuals$N[,,i] <- results[[i]]$individuals$N[,,i]
       simulation@results$individuals$D[,,i] <- results[[i]]$individuals$D[,,i]

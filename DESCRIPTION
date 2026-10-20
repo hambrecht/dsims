@@ -11,20 +11,20 @@ Imports:
     dplyr,
     mgcv,
     methods,
-    rstudioapi,
+    mirai,
+    parallel,
+    parallelly,
     gridExtra,
     rlang
 Suggests:
     testthat,
     bookdown,
-    parallel,
-    pbapply,
     knitr,
     lwgeom,
     rmarkdown
 Type: Package
 Title: Distance Sampling Simulations
-Version: 1.0.6
+Version: 1.1.0
 Authors@R: c(
   person("Laura", "Marshall", email = "lhm@st-and.ac.uk", role = c("aut", "cre")),
   person("Thomas", "Len", email = "len.thomas@st-andrews.ac.uk", role = "ctb"))

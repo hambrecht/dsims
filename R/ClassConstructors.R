@@ -284,8 +284,8 @@ make.population.description <- make.pop.description <- function(region = make.re
 #'   Animal locations outside the raster extent or with NA cell values are replaced with the
 #'   raster mean and a warning is issued.
 #'   \strong{Parallel note:} file paths are strongly preferred over in-memory SpatRaster
-#'   objects when using \code{run.parallel = TRUE}, as large objects may not serialise
-#'   efficiently to worker processes.
+#'   objects when running in parallel (see \code{\link{run.simulation}}), as large
+#'   objects may not serialise efficiently to worker processes.
 #' @param truncation the maximum perpendicular (or radial) distance at which
 #'   objects may be detected from a line (or point) transect.
 #' @return \code{\link{Detectability-class}} object

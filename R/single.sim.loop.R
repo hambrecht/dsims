@@ -1,15 +1,12 @@
-#' @importFrom utils flush.console
 #' @importFrom methods new is
 #' @importFrom mrds dht
 #single.simulation.loop <- function(i, object){
-single.sim.loop <- function(i, simulation, save.data, load.data, data.path = character(0), counter, in.parallel = FALSE, transect.path = character(0), save.transects = FALSE, progress.file = character(0), debug = FALSE){
+single.sim.loop <- function(i, simulation, save.data, load.data, data.path = character(0), transect.path = character(0), save.transects = FALSE, debug = FALSE){
   # Input: i - integer representing the loop number
   #        simulation - an simulation of class Simulation
   #        save.data - logical whether to save the data
   #        load.data - logical whether to load the data
   #        data.path - where to load/save the data
-  #        counter - whether to display a progress counter
-  #        in.parallel - whether it is being run in parallel
   #        transect.path - vector of shapefile paths for each iteration or 
   #           locations to save them to (latter not yet implemented)
   #        save.transects - logical whether to save the transects 
@@ -20,30 +17,6 @@ single.sim.loop <- function(i, simulation, save.data, load.data, data.path = cha
   #
   warnings <- simulation@warnings
   rep.filename <- NA_character_
-  # Display/write to file the progress of the simulation
-  if(counter){
-    if(length(progress.file) == 0 && !in.parallel){
-      # Write to terminal
-      message("\r", i, " out of ", simulation@reps,  " reps     \r", appendLF = FALSE)  
-    }else if(length(progress.file) > 0){
-      # Calculate progress as an integer %
-      progress <- round(i/simulation@reps*100)
-      # Check if being run in parallel
-      if(in.parallel){
-        #If so load file to check if progress should be updated 
-        old.progress <- try(scan(progress.file, what=integer()), silent = TRUE)
-        if(inherits(old.progress,"integer")){
-          #Only update if this is the latest progress (when running in parallel things may not be processed in exactly the right order)
-          if(progress > old.progress){
-            try(cat(progress, file = progress.file), silent = TRUE) 
-          } 
-        }
-      }else{
-        cat(progress, file = progress.file)  
-      }
-    }
-  }
-  flush.console()
   if(!load.data){
     #generate population
     population <- generate.population(simulation)
