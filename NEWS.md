@@ -1,3 +1,17 @@
+# dsims 1.1.0
+
+Enhancements
+
+* Parallel processing now uses the mirai package. Repetitions are distributed to workers as they become free, and workers start faster than with the previous cluster setup.
+* Simulations are now run in parallel by default (`run.parallel = TRUE`). The default number of workers is `parallelly::availableCores(omit = 1)`, which respects limits set by HPC schedulers and containers. Daemons set up by the user with `mirai::daemons()` (including remote / HPC daemons) are used if present.
+* Each repetition uses its own random number stream, so after `set.seed()` results are identical whether run in serial or in parallel, regardless of the number of workers.
+* A repetition that fails with an error no longer stops the simulation; it is skipped and reported in the summary of warnings and errors.
+* The progress counter is now shown when running in parallel and includes the elapsed and estimated remaining time.
+
+Breaking Changes
+
+* Results from simulations run with a given seed will differ from those obtained with previous versions of dsims, as the random number streams have changed.
+
 # dsims 1.0.6
 
 Bug Fixes
