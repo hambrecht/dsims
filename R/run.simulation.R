@@ -12,7 +12,11 @@
 #' \code{parallelly::availableCores(omit = 1)}, which respects limits set by
 #' HPC schedulers and containers. If you have already started mirai daemons
 #' (e.g. \code{mirai::daemons(8)}, or remote / HPC daemons) these are used
-#' instead and are left running afterwards.
+#' instead and are left running afterwards. Otherwise workers are started and
+#' stopped on every call, which takes a few seconds; when running many short
+#' simulations (e.g. in a loop) start the daemons once with
+#' \code{mirai::daemons(n)} beforehand and stop them with
+#' \code{mirai::daemons(0)} when finished.
 #'
 #' Each repetition uses its own random number stream, so after calling
 #' \code{set.seed} results are identical whether run in serial or in parallel,

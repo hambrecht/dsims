@@ -95,6 +95,17 @@ test_that("Can create objects or return correct error / warning messages", {
                                            N = -100),
                "You must provide a positive, non-zero abundance", fixed = TRUE)
 
+  # Fractional N would be rounded up when generating the population
+  expect_error(make.population.description(region = region,
+                                           density = density,
+                                           N = 100.4),
+               "Population size N must be a whole number", fixed = TRUE)
+  expect_s4_class(make.population.description(region = region,
+                                              density = density,
+                                              N = 100.4,
+                                              fixed.N = FALSE),
+                  "Population.Description")
+
 
   # This should work below
   covariate.list <- list()
