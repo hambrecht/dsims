@@ -9,9 +9,15 @@ Enhancements
 * The progress counter is now shown when running in parallel and includes the elapsed and estimated remaining time.
 * `make.ds.analysis()` now accepts `key = "unif"` (or `"uf"`) to fit a uniform detection function, giving the strip transect estimate n / covered area. Covariates cannot be used with the uniform key. Previously only "hn" and "hr" were allowed although the documentation listed uniform.
 
+Bug Fixes
+
+* Fractional values of `N` with `fixed.N = TRUE` were silently rounded up when generating each stratum's population, while the unrounded `N` was used as the true abundance. With many small strata this inflated the simulated population relative to the truth. `make.population.description()` now stops if `N` is not a whole number when `fixed.N = TRUE`.
+
 Breaking Changes
 
 * Results from simulations run with a given seed will differ from those obtained with previous versions of dsims, as the random number streams have changed.
+* `N` must be whole numbers when `fixed.N = TRUE` (see Bug Fixes).
+* Worker processes now appear as `mirai::daemon(...)` rather than PSOCK workers (`workRSOCK`), which affects scripts that monitor the worker processes.
 
 # dsims 1.0.6
 
